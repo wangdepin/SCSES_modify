@@ -242,6 +242,12 @@ FtClassifier <- function(
     cell_similarity_data2 <- check.valid(x = cell_similarity_data2, select = c("EXP_RBP", "RC", "PSI"))
     cell_similarity_data <- intersect(cell_similarity_data1, cell_similarity_data2)
     print(paste0("cell_similarity_data=", paste(cell_similarity_data, collapse = ";"), "  checked"))
+
+    cell_id <- colnames(cell_similarity[[1]])
+    psi <- psi[, cell_id, drop = F]
+    rc <- rc[, cell_id, drop = F]
+    expr <- expr[, cell_id, drop = F]
+    
     # validate parameters----
     decay_impute <- check.double.or.null(x = decay_impute, default = 0.05)
 
