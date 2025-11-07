@@ -151,6 +151,9 @@ readSCSESconfig <- function(paras_file) {
       }
     }else if(!grepl("^chr",gtf[1,1]) & !grepl("^chr",gff[1,1]) &
              !grepl("^>chr",ref[1,1]) & !grepl("^chr",chr_bam)){
+      phast.path <- paras$Task$impute$event_features$phast_path
+      chromosomes <- seqnames(import(phast.path, which = GRanges("chr1:1-1")))
+      chromosomes <- levels(chromosomes)
       paras$Task$event$remove_chr = "true"
       if(grepl("^chr",chromosomes[1])){
         paras$Task$impute$event_features$chr_prefix = "chr"
