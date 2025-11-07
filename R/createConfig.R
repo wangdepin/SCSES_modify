@@ -157,7 +157,7 @@ readSCSESconfig <- function(paras_file) {
       paras$Task$event$remove_chr = "true"
       if(grepl("^chr",chromosomes[1])){
         paras$Task$impute$event_features$chr_prefix = "chr"
-        print("The chromosome number prefixes in the bam file and the phast conservation file do not match.")
+        warning("The chromosome number prefixes in the bam file and the phast conservation file do not match.")
       }else{
         paras$Task$impute$event_features$chr_prefix = ""
       }
