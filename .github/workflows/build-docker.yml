@@ -1,0 +1,51 @@
+# GitHub Actions workflow to build SCSES Docker image on x86_64
+# 
+# Usage:
+# 1. Push this repo to GitHub
+# 2. Go to Actions tab -> Run workflow
+# 3. Download the artifact (scses_hpc.tar.gz)
+# 4. Transfer to HPC and convert: singularity build scses_hpc.sif docker-archive://scses_hpc.tar
+
+name: Build SCSES Docker Image
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'SCSES_hpc.dockerfile'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180  # 3 hours max (MCR download is slow)
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /usr/local/share/boost
+          df -h
+      
+      - name: Build Docker image
+        run: |
+          docker build -f SCSES_hpc.dockerfile -t scses:hpc .
+      
+      - name: Save Docker image
+        run: |
+          docker save scses:hpc | gzip > scses_hpc.tar.gz
+          ls -lh scses_hpc.tar.gz
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: scses-docker-image
+          path: scses_hpc.tar.gz
+          retention-days: 7
+
