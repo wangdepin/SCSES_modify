@@ -1,0 +1,294 @@
+# =============================================================================
+# SCSES HPC Singularity Definition File
+# Purpose: HPC cluster computing, command-line only, no RStudio
+#
+# Build command (on HPC with Singularity):
+#   singularity build --fakeroot scses_hpc.sif SCSES_hpc.def
+#
+# Or if you have sudo:
+#   sudo singularity build scses_hpc.sif SCSES_hpc.def
+#
+# Run:
+#   singularity shell scses_hpc.sif
+#   singularity exec scses_hpc.sif R
+#
+# =============================================================================
+
+Bootstrap: docker
+From: rocker/r-ver:4.4
+
+%labels
+    Author SCSES Team
+    Description SCSES HPC environment for single-cell splicing analysis
+    Version 1.0
+
+%post
+    # ==========================================================================
+    # System dependencies
+    # ==========================================================================
+    apt-get update && \
+    apt-get install -y \
+        wget \
+        curl \
+        ca-certificates \
+        aptitude \
+        python3-pip \
+        openjdk-8-jdk \
+        zlib1g-dev \
+        libhdf5-dev \
+        libtirpc-dev \
+        libbz2-dev \
+        liblzma-dev \
+        libncurses5-dev \
+        libncursesw5-dev \
+        libgsl-dev \
+        cmake \
+        libboost-iostreams-dev \
+        bedtools \
+        libglpk40 \
+        libglpk-dev \
+        unzip \
+        git \
+        build-essential && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+    # Create symlinks
+    ln -sf /lib/x86_64-linux-gnu/libboost_iostreams.so.1.83.0 \
+           /lib/x86_64-linux-gnu/libboost_iostreams.so.1.71.0 2>/dev/null || true
+    ln -sf /usr/bin/python3 /usr/bin/python
+
+    # Create software directory
+    mkdir -p /software
+    chmod 755 /software
+
+    # ==========================================================================
+    # Install Miniconda
+    # ==========================================================================
+    cd /software
+    wget -q https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+    bash miniconda.sh -b -u -p /software/miniconda3
+    rm miniconda.sh
+    chmod -R 755 /software/miniconda3
+
+    # Source conda for this build session
+    . /software/miniconda3/etc/profile.d/conda.sh
+
+    # ==========================================================================
+    # Install htslib
+    # ==========================================================================
+    cd /software
+    wget -q https://github.com/samtools/htslib/releases/download/1.21/htslib-1.21.tar.bz2
+    tar -xjf htslib-1.21.tar.bz2
+    cd htslib-1.21
+    ./configure --prefix=/software/htslib
+    make -j$(nproc)
+    make install
+    cd /software
+    rm -rf htslib-1.21.tar.bz2 htslib-1.21
+    chmod -R 755 /software/htslib
+
+    # ==========================================================================
+    # Install featureCounts (subread)
+    # ==========================================================================
+    cd /software
+    wget -q https://sourceforge.net/projects/subread/files/subread-2.0.6/subread-2.0.6-source.tar.gz
+    tar -xzf subread-2.0.6-source.tar.gz
+    cd subread-2.0.6-source/src
+    make -f Makefile.Linux -j$(nproc)
+    cd /software
+    rm subread-2.0.6-source.tar.gz
+    chmod -R 755 /software/subread-2.0.6-source
+
+    # ==========================================================================
+    # Install samtools
+    # ==========================================================================
+    cd /software
+    wget -q https://github.com/samtools/samtools/releases/download/1.21/samtools-1.21.tar.bz2
+    tar -xjf samtools-1.21.tar.bz2
+    cd samtools-1.21
+    ./configure --prefix=/software/samtools
+    make -j$(nproc)
+    make install
+    cd /software
+    rm -rf samtools-1.21.tar.bz2 samtools-1.21
+    chmod -R 755 /software/samtools
+
+    # ==========================================================================
+    # Create conda environments and accept ToS
+    # ==========================================================================
+    . /software/miniconda3/etc/profile.d/conda.sh
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+    conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+    conda update -n base -c defaults conda -y
+    conda create -n MAJIQ python=3.11 -y
+    conda create -n SCSES python=3.11 -y
+    conda clean -afy
+
+    # ==========================================================================
+    # Install Python packages in SCSES environment
+    # ==========================================================================
+    . /software/miniconda3/etc/profile.d/conda.sh
+    conda activate SCSES
+    pip install --no-cache-dir \
+        pandas \
+        numpy \
+        scipy \
+        scikit-learn \
+        cython \
+        keras==2.15.0 \
+        tensorflow==2.15.0.post1
+    conda deactivate
+
+    # ==========================================================================
+    # Install MAJIQ in conda environment
+    # ==========================================================================
+    . /software/miniconda3/etc/profile.d/conda.sh
+    conda activate MAJIQ
+    export HTSLIB_LIBRARY_DIR=/software/htslib/lib
+    export HTSLIB_INCLUDE_DIR=/software/htslib/include
+    conda install -c conda-forge gcc=12.1.0 -y
+    pip install --no-cache-dir git+https://bitbucket.org/biociphers/majiq_academic.git@v2.5.7
+    cd /software
+    wget -q https://majiq.biociphers.org/app_download/majiq_license_academic_official.lic
+    conda clean -afy
+    conda deactivate
+
+    # ==========================================================================
+    # Install STAR
+    # ==========================================================================
+    cd /software
+    wget -q https://github.com/alexdobin/STAR/archive/2.7.11b.tar.gz -O STAR.2.7.11b.tar.gz
+    tar -xzf STAR.2.7.11b.tar.gz
+    rm STAR.2.7.11b.tar.gz
+    chmod -R 755 /software/STAR-2.7.11b
+
+    # ==========================================================================
+    # Install rMATS
+    # ==========================================================================
+    . /software/miniconda3/etc/profile.d/conda.sh
+    conda activate SCSES
+    cd /software
+    wget -q https://github.com/Xinglab/rmats-turbo/releases/download/v4.3.0/rmats_turbo_v4_3_0.tar.gz
+    tar -xzf rmats_turbo_v4_3_0.tar.gz
+    cd rmats_turbo_v4_3_0
+    bash build_rmats
+    cd /software
+    rm rmats_turbo_v4_3_0.tar.gz
+    chmod -R 755 /software/rmats_turbo_v4_3_0
+    conda deactivate
+
+    # ==========================================================================
+    # Install MATLAB Runtime (MCR) R2022b
+    # ==========================================================================
+    mkdir -p /MCR
+    cd /MCR
+    wget -q https://ssd.mathworks.com/supportfiles/downloads/R2022b/Release/10/deployment_files/installer/complete/glnxa64/MATLAB_Runtime_R2022b_Update_10_glnxa64.zip
+    unzip -q MATLAB_Runtime_R2022b_Update_10_glnxa64.zip
+    ./install -destinationFolder /opt/mcr -agreeToLicense yes -mode silent
+    cd /
+    rm -rf /MCR
+    chmod -R 755 /opt/mcr
+
+    # ==========================================================================
+    # Install R packages
+    # ==========================================================================
+    R -e "install.packages(c('BiocManager','jsonlite','Matrix','reticulate','irlba','reshape2','R.matlab','hdf5r','R.oo','glmnet','caret','devtools'), repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))"
+    rm -rf /tmp/Rtmp*
+
+    R -e "devtools::install_version('Seurat', version='4.4.0', repos='https://cloud.r-project.org', upgrade='never')"
+    rm -rf /tmp/Rtmp*
+
+    R -e "BiocManager::install(c('Rsamtools','Rhtslib','S4Vectors'), Ncpus=$(nproc), update=FALSE, ask=FALSE)"
+    rm -rf /tmp/Rtmp*
+
+    R -e "BiocManager::install(c('rtracklayer','Biostrings','GenomicRanges','IRanges','rhdf5'), Ncpus=$(nproc), update=FALSE, ask=FALSE)"
+    rm -rf /tmp/Rtmp*
+
+    R -e "devtools::install_version('BSgenome', version='1.70.2', repos='https://bioconductor.org/packages/3.18/bioc', upgrade='never', dependencies=TRUE)"
+    rm -rf /tmp/Rtmp*
+
+    R -e "devtools::install_github('lvxuan12/SCSES', ref='SCSES_docker', Ncpus=$(nproc), upgrade='never')"
+    rm -rf /tmp/Rtmp*
+
+    R -e "install.packages('umap', repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))"
+    rm -rf /tmp/Rtmp*
+
+    # ==========================================================================
+    # Install IRFinder
+    # ==========================================================================
+    cd /software
+    wget -q https://github.com/RitchieLabIGH/IRFinder/archive/refs/tags/v2.0.1.tar.gz
+    tar -xzf v2.0.1.tar.gz
+    rm v2.0.1.tar.gz
+    chmod -R 755 /software/IRFinder-2.0.1
+
+    # ==========================================================================
+    # Fix libstdc++ compatibility issue in SCSES conda env
+    # ==========================================================================
+    . /software/miniconda3/etc/profile.d/conda.sh
+    conda activate SCSES
+    if [ -f "${CONDA_PREFIX}/lib/libstdc++.so.6" ]; then
+        mv ${CONDA_PREFIX}/lib/libstdc++.so.6 ${CONDA_PREFIX}/lib/libstdc++.so.6.bak
+        ln -s /usr/lib/x86_64-linux-gnu/libstdc++.so.6 ${CONDA_PREFIX}/lib/libstdc++.so.6
+    fi
+    conda deactivate
+
+    # ==========================================================================
+    # Final cleanup
+    # ==========================================================================
+    chmod -R 755 /software
+    chmod -R 755 /opt/mcr
+    rm -rf /tmp/* /var/tmp/*
+
+%environment
+    # Conda
+    export PATH="/software/miniconda3/bin:${PATH}"
+    
+    # Java
+    export JAVA_HOME="/usr/lib/jvm/java-8-openjdk-amd64"
+    export PATH="${PATH}:${JAVA_HOME}/bin"
+    
+    # Tools
+    export PATH="${PATH}:/software/STAR-2.7.11b/bin/Linux_x86_64_static"
+    export PATH="${PATH}:/software/rmats_turbo_v4_3_0"
+    export PATH="${PATH}:/software/IRFinder-2.0.1/bin"
+    export PATH="${PATH}:/software/samtools/bin"
+    export PATH="${PATH}:/software/subread-2.0.6-source/bin"
+    export PATH="${PATH}:/software/htslib/bin"
+    
+    # Libraries
+    export LD_LIBRARY_PATH="/software/htslib/lib"
+    
+    # MCR environment variables
+    export MCR_ROOT="/opt/mcr/R2022b"
+    export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${MCR_ROOT}/runtime/glnxa64:${MCR_ROOT}/bin/glnxa64:${MCR_ROOT}/sys/os/glnxa64"
+
+%runscript
+    exec bash "$@"
+
+%help
+    SCSES HPC Singularity Container
+    ================================
+    
+    This container includes:
+    - R 4.4 with SCSES package and dependencies
+    - MATLAB Runtime R2022b (for Imputation, Event Similarity, FtClassifier)
+    - rMATS, IRFinder, STAR, samtools, featureCounts
+    - MAJIQ (in conda environment)
+    - Python packages (TensorFlow, Keras, etc.)
+    
+    Usage:
+    ------
+    # Interactive shell
+    singularity shell scses_hpc.sif
+    
+    # Run R
+    singularity exec scses_hpc.sif R
+    
+    # Activate conda environment
+    singularity exec scses_hpc.sif bash -c "source /software/miniconda3/etc/profile.d/conda.sh && conda activate SCSES && python"
+    
+    # Run MAJIQ
+    singularity exec scses_hpc.sif bash -c "source /software/miniconda3/etc/profile.d/conda.sh && conda activate MAJIQ && majiq"
+
