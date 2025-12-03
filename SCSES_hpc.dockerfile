@@ -198,8 +198,17 @@ RUN R -e "\
     repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc)); \
     remotes::install_version('Seurat', version='4.4.0', repos='https://cloud.r-project.org', upgrade='never'); \
     BiocManager::install(c('Rsamtools','Rhtslib','S4Vectors','rtracklayer','Biostrings','GenomicRanges','IRanges','rhdf5'), Ncpus=$(nproc), update=FALSE, ask=FALSE); \
-    remotes::install_version('BSgenome', version='1.70.2', repos='https://bioconductor.org/packages/3.18/bioc', upgrade='never', dependencies=TRUE); \
-    remotes::install_github('lvxuan12/SCSES', ref='SCSES_docker', Ncpus=$(nproc), upgrade='never')" && \
+    remotes::install_version('BSgenome', version='1.70.2', repos='https://bioconductor.org/packages/3.18/bioc', upgrade='never', dependencies=TRUE)" && \
+    rm -rf /tmp/Rtmp*
+
+# Install SCSES and its dependencies separately for better error handling
+RUN R -e "\
+    # Install threeBrain dependency first
+    remotes::install_github('dipterix/threeBrain', upgrade='never'); \
+    # Install SCSES
+    remotes::install_github('lvxuan12/SCSES', ref='SCSES_docker', dependencies=TRUE, upgrade='never'); \
+    # Verify installation
+    if (!require('SCSES', quietly=TRUE)) stop('SCSES installation failed!')" && \
     rm -rf /tmp/Rtmp*
 
 # =============================================================================
