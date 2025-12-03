@@ -192,9 +192,15 @@ RUN mkdir -p /MCR && \
 # =============================================================================
 # Install R packages
 # =============================================================================
-RUN R -e "install.packages(c('BiocManager','jsonlite','Matrix','reticulate','irlba','reshape2','R.matlab','hdf5r','R.oo','glmnet','caret','devtools'), repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
+# First install devtools and its dependencies explicitly
+RUN R -e "install.packages('devtools', repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
     rm -rf /tmp/Rtmp*
 
+# Then install other packages
+RUN R -e "install.packages(c('BiocManager','jsonlite','Matrix','reticulate','irlba','reshape2','R.matlab','hdf5r','R.oo','glmnet','caret'), repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
+    rm -rf /tmp/Rtmp*
+
+# Install Seurat 4.4.0
 RUN R -e "devtools::install_version('Seurat', version='4.4.0', repos='https://cloud.r-project.org', upgrade='never')" && \
     rm -rf /tmp/Rtmp*
 
