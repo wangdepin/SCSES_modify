@@ -191,32 +191,15 @@ RUN mkdir -p /MCR && \
 
 # =============================================================================
 # Install R packages
+# Use remotes package (lighter than devtools) for version-specific installs
 # =============================================================================
-# First install devtools and its dependencies explicitly
-RUN R -e "install.packages('devtools', repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
-    rm -rf /tmp/Rtmp*
-
-# Then install other packages
-RUN R -e "install.packages(c('BiocManager','jsonlite','Matrix','reticulate','irlba','reshape2','R.matlab','hdf5r','R.oo','glmnet','caret'), repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
-    rm -rf /tmp/Rtmp*
-
-# Install Seurat 4.4.0
-RUN R -e "devtools::install_version('Seurat', version='4.4.0', repos='https://cloud.r-project.org', upgrade='never')" && \
-    rm -rf /tmp/Rtmp*
-
-RUN R -e "BiocManager::install(c('Rsamtools','Rhtslib','S4Vectors'), Ncpus=$(nproc), update=FALSE, ask=FALSE)" && \
-    rm -rf /tmp/Rtmp*
-
-RUN R -e "BiocManager::install(c('rtracklayer','Biostrings','GenomicRanges','IRanges','rhdf5'), Ncpus=$(nproc), update=FALSE, ask=FALSE)" && \
-    rm -rf /tmp/Rtmp*
-
-RUN R -e "devtools::install_version('BSgenome', version='1.70.2', repos='https://bioconductor.org/packages/3.18/bioc', upgrade='never', dependencies=TRUE)" && \
-    rm -rf /tmp/Rtmp*
-
-RUN R -e "devtools::install_github('lvxuan12/SCSES', ref='SCSES_docker', Ncpus=$(nproc), upgrade='never')" && \
-    rm -rf /tmp/Rtmp*
-
-RUN R -e "install.packages('umap', repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
+RUN R -e "\
+    install.packages(c('remotes','BiocManager','jsonlite','Matrix','reticulate','irlba','reshape2','R.matlab','hdf5r','R.oo','glmnet','caret','devtools','umap'), \
+    repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc)); \
+    remotes::install_version('Seurat', version='4.4.0', repos='https://cloud.r-project.org', upgrade='never'); \
+    BiocManager::install(c('Rsamtools','Rhtslib','S4Vectors','rtracklayer','Biostrings','GenomicRanges','IRanges','rhdf5'), Ncpus=$(nproc), update=FALSE, ask=FALSE); \
+    remotes::install_version('BSgenome', version='1.70.2', repos='https://bioconductor.org/packages/3.18/bioc', upgrade='never', dependencies=TRUE); \
+    remotes::install_github('lvxuan12/SCSES', ref='SCSES_docker', Ncpus=$(nproc), upgrade='never')" && \
     rm -rf /tmp/Rtmp*
 
 # =============================================================================
