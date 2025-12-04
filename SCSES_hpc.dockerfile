@@ -215,7 +215,11 @@ RUN R -e "\
     remotes::install_github('beauchamplab/raveio', upgrade='never')" && \
     rm -rf /tmp/Rtmp*
 
-# Step 6: Install SCSES (dependencies=FALSE to avoid overwriting Seurat/BSgenome)
+# Step 6: Install additional SCSES dependencies (shiny packages)
+RUN R -e "install.packages(c('shinydashboard', 'shinyFiles', 'shinyWidgets', 'prompter'), repos='https://cloud.r-project.org', dependencies=TRUE)" && \
+    rm -rf /tmp/Rtmp*
+
+# Step 7: Install SCSES (dependencies=FALSE to avoid overwriting Seurat/BSgenome)
 RUN R -e "\
     remotes::install_github('lvxuan12/SCSES', ref='SCSES_docker', dependencies=FALSE, upgrade='never'); \
     if (!require('SCSES', quietly=TRUE)) stop('SCSES installation failed!'); \
