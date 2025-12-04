@@ -196,24 +196,28 @@ RUN mkdir -p /MCR && \
 RUN R -e "install.packages(c('remotes','BiocManager','jsonlite','Matrix','reticulate','irlba','reshape2','R.matlab','hdf5r','R.oo','glmnet','caret','devtools','umap','leiden'), repos='https://cloud.r-project.org', dependencies=TRUE, Ncpus=$(nproc))" && \
     rm -rf /tmp/Rtmp*
 
-# Step 2: Install Bioconductor packages
-RUN R -e "BiocManager::install(c('Rsamtools','Rhtslib','S4Vectors','rtracklayer','Biostrings','GenomicRanges','IRanges','rhdf5','BSgenome'), Ncpus=$(nproc), update=FALSE, ask=FALSE)" && \
+# Step 2: Install Bioconductor packages (except BSgenome - need specific version)
+RUN R -e "BiocManager::install(c('Rsamtools','Rhtslib','S4Vectors','rtracklayer','Biostrings','GenomicRanges','IRanges','rhdf5'), Ncpus=$(nproc), update=FALSE, ask=FALSE)" && \
     rm -rf /tmp/Rtmp*
 
-# Step 3: Install Seurat 4.4.0 (SCSES requires this specific version, NOT 5.x)
+# Step 3: Install BSgenome 1.70.2 (SCSES requires this specific version)
+RUN R -e "remotes::install_version('BSgenome', version='1.70.2', repos='https://bioconductor.org/packages/3.18/bioc', upgrade='never', dependencies=TRUE)" && \
+    rm -rf /tmp/Rtmp*
+
+# Step 4: Install Seurat 4.4.0 (SCSES requires this specific version, NOT 5.x)
 RUN R -e "remotes::install_version('Seurat', version='4.4.0', repos='https://cloud.r-project.org', upgrade='never', dependencies=TRUE)" && \
     rm -rf /tmp/Rtmp*
 
-# Step 4: Install SCSES dependencies from GitHub
+# Step 5: Install SCSES dependencies from GitHub
 RUN R -e "\
     remotes::install_github('jonclayden/RNifti', upgrade='never'); \
     remotes::install_github('dipterix/threeBrain', upgrade='never'); \
     remotes::install_github('beauchamplab/raveio', upgrade='never')" && \
     rm -rf /tmp/Rtmp*
 
-# Step 5: Install SCSES
+# Step 6: Install SCSES (dependencies=FALSE to avoid overwriting Seurat/BSgenome)
 RUN R -e "\
-    remotes::install_github('lvxuan12/SCSES', ref='SCSES_docker', dependencies=TRUE, upgrade='never'); \
+    remotes::install_github('lvxuan12/SCSES', ref='SCSES_docker', dependencies=FALSE, upgrade='never'); \
     if (!require('SCSES', quietly=TRUE)) stop('SCSES installation failed!'); \
     message('SCSES installed successfully!')" && \
     rm -rf /tmp/Rtmp*
